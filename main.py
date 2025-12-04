@@ -4,9 +4,9 @@ import os
 import time
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument('day', type=int)
-argparser.add_argument('solution', type=int)
-argparser.add_argument('input')
+argparser.add_argument('--day', '-d', type=int, required=True)
+argparser.add_argument('--solution', '-s', type=int, required=True)
+argparser.add_argument('--input', '-i', required=True)
 
 
 def main():
