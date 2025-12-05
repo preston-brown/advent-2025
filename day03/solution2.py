@@ -29,7 +29,6 @@ def get_max_digit(digits: list[int]):
     Find the max value in the provided list. 
     Return this value and its location/index.
     """
-
     result = (None, None)
     for idx, d in enumerate(digits):
         if result[0] is None or result[0] < d:
