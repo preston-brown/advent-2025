@@ -37,7 +37,8 @@ def get_input_lines(day, input_id):
     file_name = f'input_{input_id}.txt'
     file_path = os.path.join(f'day{day:02d}', file_name)
     with open(file_path) as file:
-        return [line.strip() for line in file]
+        return file.read().splitlines()
+        #return [line.strip() for line in file]
 
 
 def wrapup():
