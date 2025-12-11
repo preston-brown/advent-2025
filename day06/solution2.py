@@ -2,11 +2,9 @@ import math
 
 
 class Columns:
-
     """
     Accumulates rows of data and allows you to read the data back by column.
     """
-
     def __init__(self):
         self._rows = []
 
@@ -39,10 +37,7 @@ def get_problems(lines):
     column_dividers = [i for i, o in enumerate(operators) if o != ' '] + [len(lines[0]) + 1]
     for i in range(len(column_dividers) - 1):
         i1, i2 = column_dividers[i], column_dividers[i+1] - 1
-        result = []
-        for line in lines:
-            result.append(line[i1:i2])
-        yield result
+        yield [line[i1:i2] for line in lines]
 
 
 def extract_numbers(problem):
