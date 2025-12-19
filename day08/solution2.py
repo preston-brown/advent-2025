@@ -10,14 +10,16 @@ def run(lines):
 
 def get_last_connection(junction_boxes):
     """
-    Connect circuits until there is just one single circuit. 
+    Connect circuits until there is just one single circuit.
     Return the pair of junction boxes that triggered this last connection.
     """
     circuits = {str(uuid.uuid4()): set([jb]) for jb in junction_boxes}
     iterator = get_closest_pair_iterator(junction_boxes)
     while len(circuits) > 1:
         jb1, jb2 = next(iterator)
-        matching_circuits = list({k for k, v in circuits.items() if jb1 in v or jb2 in v})
+        matching_circuits = list(
+            {k for k, v in circuits.items() if jb1 in v or jb2 in v}
+        )
         if len(matching_circuits) == 1:
             # No action needed, the junction boxes are on the same circuit
             pass
@@ -29,10 +31,9 @@ def get_last_connection(junction_boxes):
             del circuits[id2]
             id3, c3 = str(uuid.uuid4()), c1 | c2
             circuits[id3] = c3
-            if len(circuits) == 1:
-                return jb1, jb2
         else:
-            raise Exception(f'Unexpected number of circuits: {len(matching_circuits)}')
+            raise Exception(f"Unexpected number of circuits: {len(matching_circuits)}")
+    return jb1, jb2
 
 
 def get_closest_pair_iterator(junction_boxes):
