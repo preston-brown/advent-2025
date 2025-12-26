@@ -38,11 +38,13 @@ def get_input_lines(day, input_id):
     file_path = os.path.join(f'day{day:02d}', file_name)
     with open(file_path) as file:
         return file.read().splitlines()
-        #return [line.strip() for line in file]
 
 
 def wrapup():
-    print("--- %s seconds ---" % int(time.time() - start_time))
+    seconds = int(time.time() - start_time)
+    h, rem = divmod(seconds, 3600)
+    m, s = divmod(rem, 60)    
+    print(f"--- {h:02}:{m:02}:{s:02} elapsed ---")
 
 
 if __name__ == "__main__":
