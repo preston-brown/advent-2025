@@ -210,7 +210,7 @@ def run(lines):
         outside_points_by_col[p.col].add(p)
     print(f"Outside points: {outside_point_count}")
     max_area = 0
-    for rectangle in rectangles:
+    for rectangle in sorted(rectangles, key=lambda x: x.area, reverse=True):
         if max_area < rectangle.area and check_rectangle(
             rectangle, outside_points_by_row, outside_points_by_col
         ):
