@@ -15,23 +15,12 @@ class Point:
         self._row = row
         self._col = col
 
-    def __eq__(self, other):
-        if not isinstance(other, Point):
-            return NotImplemented
-        return self._row == other._row and self._col == other._col
-
-    def __hash__(self):
-        return hash((self._row, self._col))
-
     def __lt__(self, other):
         if not isinstance(other, Point):
             return NotImplemented
         if self._row != other._row:
             return self._row < other._row
         return self._col < other._col
-
-    def __le__(self, other):
-        return self < other or self == other
 
     def __add__(self, other):
         if not isinstance(other, Point):
@@ -57,98 +46,83 @@ class Direction(Enum):
     WEST = Point(0, -1)
 
 
-class Edge:
+class LineSegment:
 
     def __init__(self, p1: Point, p2: Point):
-        assert p1 != p2
         assert p1.row == p2.row or p1.col == p2.col
         if p1.row == p2.row:
             self._orientation = Orientation.HORIZONTAL
         else:
             self._orientation = Orientation.VERTICAL
-        self._p1 = min(p1, p2)
-        self._p2 = max(p1, p2)
-
-    def __eq__(self, other):
-        if not isinstance(other, Edge):
-            return NotImplemented
-        return self._p1 == other._p1 and self._p2 == other._p2
-
-    def __hash__(self):
-        return hash((self._p1, self._p2))
-
-    def __lt__(self, other):
-        if not isinstance(other, Edge):
-            return NotImplemented
-        return self._p1 < other._p1
+        self._start = min(p1, p2)
+        self._end = max(p1, p2)
 
     def __repr__(self):
-        return f"Edge({self._p1}, {self._p2})"
+        return f"LineSegment({self._start}, {self._end})"
 
     @property
     def orientation(self):
         return self._orientation
 
     @property
-    def row(self):
-        assert self._orientation == Orientation.HORIZONTAL
-        return self._p1.row
+    def start(self):
+        return self._start
 
     @property
-    def col(self):
-        assert self._orientation == Orientation.VERTICAL
-        return self._p1.col
+    def end(self):
+        return self._end
 
     def contains_point(self, point: Point):
         if self._orientation == Orientation.HORIZONTAL:
-            return (
-                self._p1.row == point.row and self._p1.col <= point.col <= self._p2.col
-            )
+            return self._start.row == point.row and self._start.col <= point.col <= self._end.col
         else:
-            return (
-                self._p1.col == point.col and self._p1.row <= point.row <= self._p2.row
-            )
+            return self._start.col == point.col and self._start.row <= point.row <= self._end.row
 
-    def get_point(self, direction: Direction):
-        if direction in (Direction.EAST, Direction.WEST):
-            assert self._orientation == Orientation.HORIZONTAL
-            return self._p1 if direction == Direction.WEST else self._p2
-        if direction in (Direction.NORTH, Direction.SOUTH):
-            assert self._orientation == Orientation.VERTICAL
-            return self._p1 if direction == Direction.NORTH else self._p2
-
-    def iterate_points(self):
-        if self._orientation == Orientation.HORIZONTAL:
-            increment = Direction.EAST.value
+    def intersects(self, other: LineSegment):
+        """
+        Determine if this line segment intersects another. 
+        Use different approaches if they have the same orientation or not. 
+        """
+        if self._orientation == other._orientation:
+            if self._orientation == Orientation.HORIZONTAL:
+                return self._start.row == other._start.row and self._start.col <= other._end.col and self._end.col >= other._start.col
+            else:
+                return self._rotate().intersects(other._rotate())
+        elif self._orientation == Orientation.HORIZONTAL:
+            return other._start.row <= self._start.row <= other._end.row and self._start.col <= other._start.col <= self._end.col
         else:
-            increment = Direction.SOUTH.value
-        node = self._p1
-        while node <= self._p2:
-            yield node
-            node += increment
+            return other.intersects(self)
+
+    def _rotate(self):
+        """
+        Rotate a line segment 45 degrees.
+        """
+        return LineSegment(Point(self._start.col, self._start.row), Point(self._end.col, self._end.row))
 
 
-class Shape:
+class Polygon:
 
-    def __init__(self, edges: list[Edge]):
+    def __init__(self, edges: list[LineSegment]):
         self._edges = list(edges)
-
-    def __len__(self):
-        return len(self._edges)
 
     def iterate_edges(self):
         for edge in self._edges:
             yield edge
 
     def contains_point(self, point: Point):
+        """
+        Determine if the provided point is inside this polygon.
+        If you find any edge that contains this point, then the point is inside the polygon. 
+        If not, count how many horizontal edges a ray travelling north from the point toward infinity crosses. 
+        If odd, the point is inside. 
+        Note the less than in "point.col < edge.end.col". This is intentional. Hitting the right-most point of an edge doesn't count as crossing it.
+        """
         cross_count = 0
         for edge in self._edges:
             if edge.contains_point(point):
                 return True
-            if edge.orientation == Orientation.HORIZONTAL and edge.row < point.row:
-                west = edge.get_point(Direction.WEST)
-                east = edge.get_point(Direction.EAST)
-                if west.col <= point.col < east.col:
+            if edge.orientation == Orientation.HORIZONTAL and edge.start.row < point.row:
+                if edge.start.col <= point.col < edge.end.col:
                     cross_count += 1
         return cross_count % 2 == 1
 
@@ -156,70 +130,76 @@ class Shape:
 class Rectangle:
 
     def __init__(self, p1: Point, p2: Point):
-        assert p1 != p2
-        p3 = Point(p1.row, p2.col)
-        p4 = Point(p2.row, p1.col)
-        self._p1, _, _, self._p2 = list(sorted([p1, p2, p3, p4]))
-
-    def __eq__(self, other):
-        if not isinstance(other, Rectangle):
-            return NotImplemented
-        return (self._p1, self._p2) == (other._p1, other._p2)
-
-    def __hash__(self):
-        return hash((self._p1, self._p2))
+        self._northwest = Point(min(p1.row, p2.row), min(p1.col, p2.col))
+        self._southeast = Point(max(p1.row, p2.row), max(p1.col, p2.col))
 
     def __repr__(self):
-        return f"Rectangle({self._p1}, {self._p2})"
+        return f"Rectangle({self._northwest}, {self._southeast})"
 
     @property
     def area(self):
-        width = self._p2.col - self._p1.col + 1
-        height = self._p2.row - self._p1.row + 1
+        width = self._southeast.col - self._northwest.col + 1
+        height = self._southeast.row - self._northwest.row + 1
         return width * height
 
     @property
-    def p1(self):
-        return self._p1
+    def northwest(self):
+        return self._northwest
 
     @property
-    def p2(self):
-        return self._p2
+    def southeast(self):
+        return self._southeast
 
-    def contains_point(self, point: Point):
+    def contains_point(self, point: Point) -> bool:
+        """
+        Determine if the provided point is inside this rectangle.
+        """
         return (
-            self._p1.row <= point.row <= self._p2.row
-            and self._p1.col <= point.col <= self._p2.col
+            self._northwest.row <= point.row <= self._southeast.row
+            and self._northwest.col <= point.col <= self._southeast.col
         )
+
+    def iterate_edges(self):
+        """
+        Yield the four line segments that define this rectangle.
+        """
+        northeast = Point(self._northwest.row, self._southeast.col)
+        southwest = Point(self._southeast.row, self._northwest.col)
+        yield LineSegment(self._northwest, northeast)
+        yield LineSegment(self._northwest, southwest)
+        yield LineSegment(self._southeast, northeast)
+        yield LineSegment(self._southeast, southwest)
 
 
 def run(lines):
     points = get_points(lines)
     print(f"Points: {len(points)}")
-    edges = get_edges(points)
-    print(f"Edges: {len(edges)}")
-    shape = Shape(edges)
-    print(f"Shape: {len(shape)}")
-    rectangles = get_rectangles(points)
+    line_segments = build_line_segments(points)
+    print(f"Line segments: {len(line_segments)}")
+    polygon = Polygon(line_segments)
+    boundaries = build_boundaries(polygon)
+    print(f'Boundaries: {len(boundaries)}')
+    rectangles = build_rectangles(points)
     print(f"Rectangles: {len(rectangles)}")
-    outside_points_by_row, outside_points_by_col = defaultdict(set), defaultdict(set)
-    outside_point_count = 0
-    for p in get_points_outside_shape(shape):
-        outside_point_count += 1
-        outside_points_by_row[p.row].add(p)
-        outside_points_by_col[p.col].add(p)
-    print(f"Outside points: {outside_point_count}")
-    max_area = 0
-    for rectangle in sorted(rectangles, key=lambda x: x.area, reverse=True):
-        if max_area < rectangle.area and check_rectangle(
-            rectangle, outside_points_by_row, outside_points_by_col
-        ):
-            max_area = rectangle.area
-            print(f"{rectangle} | {rectangle.area:,}")
-    return max_area
+    for rectangle in sorted(rectangles, key=lambda r: r.area, reverse=True):
+        if is_inside(rectangle, boundaries, polygon):
+            return rectangle.area
+
+
+def build_line_segments(points: list[Point]) -> list[LineSegment]:
+    """
+    Generate line segments for each consecutive pair of points in the input.
+    """
+    result = []
+    for p1, p2 in zip(points, points[1:] + points[:1]):
+        result.append(LineSegment(p1, p2))
+    return result
 
 
 def get_points(lines) -> list[Point]:
+    """
+    Extract points from the provided input.
+    """
     result = []
     for line in lines:
         col, row = [int(x) for x in line.split(",")]
@@ -227,47 +207,76 @@ def get_points(lines) -> list[Point]:
     return result
 
 
-def get_edges(points: list[Point]) -> list[Edge]:
-    result = []
-    for p1, p2 in zip(points, points[1:] + points[:1]):
-        result.append(Edge(p1, p2))
-    return result
-
-
-def get_rectangles(points: list[Point]) -> list[Rectangle]:
+def build_rectangles(points: list[Point]) -> list[Rectangle]:
+    """
+    Generate a rectangle for each pair of points in the provided list. 
+    """
     result = []
     points = list(sorted(points))
     for i, p1 in enumerate(points):
-        for p2 in points[i + 1 :]:
+        for p2 in points[i + 1:]:
             result.append(Rectangle(p1, p2))
     return result
 
 
-def get_points_outside_shape(shape: Shape):
-    for edge in shape.iterate_edges():
-        for point in get_points_outside_edge(edge, shape):
-            yield point
+def build_boundaries(polygon: Polygon) -> list[LineSegment]:
+    """
+    Build a list of line segments that "bound" the provided polygon.
+    These are the line segments that contain all the points that are outside the polygon
+    and also adjacent to the polygon's edges.
+    """
+    result = []
+    for edge in polygon.iterate_edges():
+        if edge.orientation == Orientation.HORIZONTAL:
+            boundary_points = get_boundary_points(edge, Direction.NORTH, polygon)
+            if not boundary_points:
+                boundary_points = get_boundary_points(edge, Direction.SOUTH, polygon)
+        else:
+            boundary_points = get_boundary_points(edge, Direction.EAST, polygon)
+            if not boundary_points:
+                boundary_points = get_boundary_points(edge, Direction.WEST, polygon)
+        p1, p2 = min(boundary_points), max(boundary_points)
+        result.append(LineSegment(p1, p2))
+    return result
 
 
-def get_points_outside_edge(edge: Edge, shape: Shape):
+def get_boundary_points(edge: LineSegment, direction: Direction, polygon: Polygon):
+    """
+    Return the min and max boundary points for the provided edge in the specified direction. 
+    If the provided direction is _inside_ the provided polygon, then the method will return an empty list.
+
+    We only need to check four point here: start, start + 1, end, end - 1. Consider this shape:
+
+    X      X
+    X      X
+    XAAAAAAX  
+    XXXXXXXX
+    BBBBBBBB
+
+    If the A segment is inside, then the boundary points run from start + 1 to end - 1.
+    If the B segment is inside, then the boundary points run from start to end.
+    """
     if edge.orientation == Orientation.HORIZONTAL:
-        directions = (Direction.NORTH.value, Direction.SOUTH.value)
+        increasing, decreasing = Direction.EAST.value, Direction.WEST.value
     else:
-        directions = (Direction.EAST.value, Direction.WEST.value)
-    for point in edge.iterate_points():
-        for direction in directions:
-            candidate = point + direction
-            if not shape.contains_point(candidate):
-                yield candidate
+        increasing, decreasing = Direction.SOUTH.value, Direction.NORTH.value
+    edge_points = [edge.start, edge.start + increasing, edge.end + decreasing, edge.end]
+    candidates = [p + direction.value for p in edge_points]
+    candidates = [p for p in candidates if not polygon.contains_point(p)]
+    return [min(candidates), max(candidates)] if candidates else []
 
 
-def check_rectangle(rectangle: Rectangle, outside_points_by_row, outside_points_by_col):
-    for row in range(rectangle.p1.row, rectangle.p2.row + 1):
-        for point in outside_points_by_row[row]:
-            if rectangle.contains_point(point):
-                return False
-    for col in range(rectangle.p1.col, rectangle.p2.col + 1):
-        for point in outside_points_by_col[col]:
-            if rectangle.contains_point(point):
+def is_inside(rectangle: Rectangle, boundaries: list[LineSegment], polygon: Polygon):
+    """
+    Determine if the provided rectangle is fully within the provided boundaries.
+    A lot of rectangles have ALL their internal points outside the polygon, so picking one internal point and testing it 
+    can allow us to skip the slower check against all boundaries.
+    """
+    point = rectangle.northwest + Direction.EAST.value + Direction.SOUTH.value
+    if not polygon.contains_point(point):
+        return False
+    for boundary in boundaries:
+        for edge in rectangle.iterate_edges():
+            if edge.intersects(boundary):
                 return False
     return True
