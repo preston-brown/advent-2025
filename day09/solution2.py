@@ -89,7 +89,7 @@ class LineSegment:
             else:
                 return self._rotate().intersects(other._rotate())
         elif self._orientation == Orientation.HORIZONTAL:
-            return other._start.row <= self._start.row <= other._end.row and self._start.col <= other._start.col <= self._end.col
+            return self._start.col <= other._start.col <= self._end.col and other._start.row <= self._start.row <= other._end.row
         else:
             return other.intersects(self)
 
@@ -175,10 +175,8 @@ def run(lines):
     points = get_points(lines)
     print(f"Points: {len(points)}")
     line_segments = build_line_segments(points)
-    print(f"Line segments: {len(line_segments)}")
     polygon = Polygon(line_segments)
     boundaries = build_boundaries(polygon)
-    print(f'Boundaries: {len(boundaries)}')
     rectangles = build_rectangles(points)
     print(f"Rectangles: {len(rectangles)}")
     for rectangle in sorted(rectangles, key=lambda r: r.area, reverse=True):
